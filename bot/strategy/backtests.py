@@ -1,31 +1,25 @@
-from backtesting import Backtest, Strategy
+from backtesting import Strategy
 from backtesting.lib import crossover
-from backtesting.test import SMA
 import talib
 
 
 class SMAStrategy(Strategy):
-    fast_ma_period = 0
-    slow_ma_period = 0
+    fast_ma_period = 10
+    slow_ma_period = 30
+    stop_loss_pct = 0.02  # 2% стоп-лосс
+    take_profit_pct = 0.04  # 4% тейк-профит
 
     def init(self):
-        """
-        Метод инициализации. Здесь мы рассчитываем индикаторы,
-        используя встроенную функцию I(), чтобы индикаторы пересчитывались автоматически.
-        """
         self.fast_ma = self.I(talib.SMA, self.data.Close, self.fast_ma_period)
         self.slow_ma = self.I(talib.SMA, self.data.Close, self.slow_ma_period)
 
     def next(self):
-        """
-        Метод, вызываемый на каждом новом баре.
-        Если быстрая скользящая средняя выше медленной и позиции нет.
-        Если быстрая скользящая средняя ниже медленной и позиция открыта.
-        """
-        # Если сигнал на покупку и позиции ещё нет
-        if crossover(self.slow_ma, self.fast_ma) and not self.position:
-            self.buy()
-        # Если сигнал на продажу и позиция открыта – закрываем её
-        elif crossover(self.fast_ma, self.slow_ma) and self.position:
+        price = self.data.Close[-1]
+
+        # Открываем сделку при пересечении вверх
+        if crossover(self.fast_ma, self.slow_ma) and not self.position:
+            self.buy(sl=price * (1 - self.stop_loss_pct), tp=price * (1 + self.take_profit_pct))
+
+        # Закрываем сделку при пересечении вниз
+        elif crossover(self.slow_ma, self.fast_ma) and self.position:
             self.position.close()
-            self.sell()
